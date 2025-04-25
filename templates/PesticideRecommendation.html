@@ -1,0 +1,335 @@
+{% extends "layout.html" %}
+
+{% block nav %}
+<li><a href="index.html">Home</a></li>
+<li><a href="CropRecommendation.html">Crop</a></li>
+<li><a href="FertilizerRecommendation.html">Fertilizer</a></li>
+<li><a href="PesticideRecommendation.html" class="active">Pesticide Issue Detector</a></li>
+<li><a href="wheather">Weather</a></li>
+<li><a href="{{ url_for('logout') }}">Logout</a></li>
+{% endblock %}
+
+{% block body %}
+<style>
+  .container-box {
+    background-color: white;
+    padding: 30px;
+    border-radius: 15px;
+    max-width: 700px;
+    margin: 40px auto 60px auto;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  }
+
+  .btn-custom {
+    background-color: black;
+    color: #c79c60;
+    font-weight: bold;
+    border-radius: 10px;
+  }
+
+  .btn-custom:hover {
+    background-color: #222;
+  }
+
+  .result-box {
+    margin-top: 20px;
+    padding: 15px;
+    border-left: 4px solid #c79c60;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+  }
+</style>
+
+<div class="container">
+  <div class="container-box">
+    <h3 class="text-center mb-4">Pesticide Issue Detector</h3>
+    <form id="symptomForm">
+      <div class="mb-3">
+        <label for="symptoms" class="form-label">Enter observed symptoms (e.g., yellow leaves, holes in leaves,brown spots):</label>
+        <input type="text" class="form-control" id="symptoms" placeholder="Type symptoms here..." required>
+      </div>
+      <div class="d-flex justify-content-center">
+        <button type="submit" class="btn btn-custom">Check Issue</button>
+      </div>
+    </form>
+
+    <div id="result" class="result-box mt-4" style="display: none;"></div>
+  </div>
+</div>
+
+<script>
+  const recommendations = [
+  {
+    keywords: ['yellowing leaves', 'root bound', 'slow growth'],
+    issue: 'Pot-bound Roots',
+    suggestion: 'Repot into a larger container. Trim circling roots.'
+  },
+  {
+    keywords: ['black spots', 'wilting', 'leaf drop'],
+    issue: 'Fungal Leaf Spot',
+    suggestion: 'Remove affected leaves. Use a fungicide spray.'
+  },
+  {
+    keywords: ['white fuzzy growth', 'stem base', 'wilting'],
+    issue: 'Botrytis (Gray Mold)',
+    suggestion: 'Improve airflow. Remove infected parts. Use fungicide.'
+  },
+  {
+    keywords: ['distorted new leaves', 'black residue', 'ants'],
+    issue: 'Mealybugs',
+    suggestion: 'Use rubbing alcohol or neem oil to wipe pests off.'
+  },
+  {
+    keywords: ['droopy leaves', 'soggy soil', 'moldy smell'],
+    issue: 'Overwatering',
+    suggestion: 'Let soil dry out. Improve drainage.'
+  },
+  {
+    keywords: ['yellow leaves', 'dry soil', 'crispy texture'],
+    issue: 'Underwatering',
+    suggestion: 'Increase watering frequency. Mulch soil surface.'
+  },
+  {
+    keywords: ['leaf edges browning', 'white crust on soil'],
+    issue: 'Salt Buildup',
+    suggestion: 'Flush soil with water. Use distilled water.'
+  },
+  {
+    keywords: ['small black bugs', 'jumping insects', 'wilting'],
+    issue: 'Fungus Gnats',
+    suggestion: 'Allow soil to dry. Use sticky traps or BTi treatment.'
+  },
+  {
+    keywords: ['pale leaves', 'weak stems', 'slow growth'],
+    issue: 'Nitrogen Deficiency',
+    suggestion: 'Use a nitrogen-rich fertilizer.'
+  },
+  {
+    keywords: ['brown leaf tips', 'no humidity', 'dry air'],
+    issue: 'Low Humidity',
+    suggestion: 'Mist plant or use a humidifier.'
+  },
+  {
+    keywords: ['sunburn spots', 'scorched leaves', 'bleached patches'],
+    issue: 'Sunburn',
+    suggestion: 'Move to indirect light. Use sheer curtains.'
+  },
+  {
+    keywords: ['yellow bottom leaves', 'no drainage', 'wet soil'],
+    issue: 'Poor Drainage',
+    suggestion: 'Add drainage holes. Use well-draining mix.'
+  },
+  {
+    keywords: ['curled leaves', 'brown spots', 'leaf distortion'],
+    issue: 'Thrips',
+    suggestion: 'Prune affected areas. Use insecticidal soap.'
+  },
+  {
+    keywords: ['fine webbing', 'tiny red dots', 'leaf drop'],
+    issue: 'Spider Mite Infestation',
+    suggestion: 'Rinse plant. Apply neem oil weekly.'
+  },
+  {
+    keywords: ['white specks', 'stippled leaves', 'leaf curling'],
+    issue: 'Whiteflies',
+    suggestion: 'Use yellow sticky traps. Spray insecticidal soap.'
+  },
+  {
+    keywords: ['stunted growth', 'pale leaves', 'purple stems'],
+    issue: 'Phosphorus Deficiency',
+    suggestion: 'Use a phosphorus-rich fertilizer.'
+  },
+  {
+    keywords: ['wilting despite moist soil', 'blackened roots'],
+    issue: 'Root Rot (Fungal)',
+    suggestion: 'Remove rotted roots. Repot with dry, fresh soil.'
+  },
+  {
+    keywords: ['green algae', 'surface mold', 'musty smell'],
+    issue: 'Surface Mold',
+    suggestion: 'Increase airflow. Let soil dry. Scrape off mold.'
+  },
+  {
+    keywords: ['yellowing from leaf tips inward', 'leaf drop'],
+    issue: 'Potassium Deficiency',
+    suggestion: 'Add potassium fertilizer (K).'
+  },
+  {
+    keywords: ['leaf curl', 'deformed buds', 'sticky residue'],
+    issue: 'Whitefly Infestation',
+    suggestion: 'Use horticultural oil or insecticidal soap.'
+  },
+  {
+    keywords: ['stem browning', 'leaf fall', 'plant collapse'],
+    issue: 'Stem Rot',
+    suggestion: 'Cut above rot. Re-root healthy stem.'
+  },
+  {
+    keywords: ['mushy crown', 'bad smell', 'blackened base'],
+    issue: 'Crown Rot',
+    suggestion: 'Remove affected parts. Improve drainage.'
+  },
+  {
+    keywords: ['brown spots with yellow halo', 'wet appearance'],
+    issue: 'Bacterial Blight',
+    suggestion: 'Isolate plant. Avoid wetting leaves.'
+  },
+  {
+    keywords: ['yellowing lower leaves', 'woody stems'],
+    issue: 'Old Age of Leaves',
+    suggestion: 'Trim old leaves. Encourage new growth.'
+  },
+  {
+    keywords: ['leaf tips browning', 'tap water used'],
+    issue: 'Fluoride Toxicity',
+    suggestion: 'Switch to rain or distilled water.'
+  },
+  {
+    keywords: ['spots on underside of leaves', 'leaf distortion'],
+    issue: 'Leaf Miners',
+    suggestion: 'Remove affected leaves. Use neem oil spray.'
+  },
+  {
+    keywords: ['no flowering', 'lush foliage', 'long stems'],
+    issue: 'Too Much Nitrogen',
+    suggestion: 'Reduce nitrogen. Use bloom fertilizer.'
+  },
+  {
+    keywords: ['spongy stems', 'droopy plant', 'fungal smell'],
+    issue: 'Soft Rot',
+    suggestion: 'Cut infected parts. Use copper fungicide.'
+  },
+  {
+    keywords: ['leaves turning purple', 'slow growth'],
+    issue: 'Cold Stress',
+    suggestion: 'Move plant to a warmer spot.'
+  },
+  {
+    keywords: ['bleached leaves', 'leaf loss', 'dry tips'],
+    issue: 'Too Much Light',
+    suggestion: 'Move to filtered light.'
+  },
+  {
+    keywords: ['long gaps between leaves', 'leaning plant'],
+    issue: 'Insufficient Light',
+    suggestion: 'Move to brighter location.'
+  },
+  {
+    keywords: ['burned roots', 'white powder on soil'],
+    issue: 'Fertilizer Burn',
+    suggestion: 'Flush soil with water. Reduce feeding.'
+  },
+  {
+    keywords: ['twisted leaves', 'scorched spots', 'blistering'],
+    issue: 'Chemical Spray Damage',
+    suggestion: 'Rinse leaves. Avoid spraying in sunlight.'
+  },
+  {
+    keywords: ['wilting in heat', 'dry soil', 'leaf curling'],
+    issue: 'Heat Stress',
+    suggestion: 'Provide shade. Water regularly.'
+  },
+  {
+    keywords: ['patchy yellowing', 'no pests', 'soil compaction'],
+    issue: 'Soil Compaction',
+    suggestion: 'Loosen soil. Aerate or repot.'
+  },
+  {
+    keywords: ['weak stems', 'pale foliage', 'slow recovery'],
+    issue: 'Lack of Sunlight',
+    suggestion: 'Expose to more bright indirect light.'
+  },
+  {
+    keywords: ['moldy stem', 'damp smell', 'sudden collapse'],
+    issue: 'Fungal Stem Blight',
+    suggestion: 'Prune damaged stems. Use fungicide.'
+  },
+  {
+    keywords: ['white fuzz', 'soft leaves', 'wilting'],
+    issue: 'Downy Mildew',
+    suggestion: 'Improve air circulation. Avoid overhead watering.'
+  },
+  {
+    keywords: ['tiny white insects', 'fly around when disturbed'],
+    issue: 'Whiteflies',
+    suggestion: 'Spray with neem oil or insecticidal soap.'
+  },
+  {
+    keywords: ['sudden leaf drop', 'cold draft', 'stress'],
+    issue: 'Environmental Shock',
+    suggestion: 'Avoid abrupt changes in light or temperature.'
+  },
+  {
+    keywords: ['rusty spots', 'yellowing', 'leaf fall'],
+    issue: 'Rust Fungus',
+    suggestion: 'Remove affected leaves. Apply fungicide.'
+  },
+  {
+    keywords: ['brittle stems', 'leaf drop', 'poor growth'],
+    issue: 'Underfertilization',
+    suggestion: 'Feed with balanced fertilizer monthly.'
+  },
+  {
+    keywords: ['dry brown patches', 'hot windowsill'],
+    issue: 'Glass Burn',
+    suggestion: 'Move away from direct sunlight through glass.'
+  },
+  {
+    keywords: ['corky scabs', 'rough patches on fruit or leaves'],
+    issue: 'Edema',
+    suggestion: 'Reduce watering. Improve ventilation.'
+  },
+  {
+    keywords: ['sudden drooping', 'wet soil', 'bad smell'],
+    issue: 'Waterlogged Roots',
+    suggestion: 'Repot with fresh soil. Trim damaged roots.'
+  },
+  {
+    keywords: ['pale veins', 'discolored leaves', 'leaf drop'],
+    issue: 'Magnesium Deficiency',
+    suggestion: 'Use Epsom salts diluted in water.'
+  },
+  {
+    keywords: ['curling up leaves', 'dry spots', 'sunny windows'],
+    issue: 'Light Burn',
+    suggestion: 'Move to indirect light.'
+  },
+  {
+    keywords: ['shriveling leaves', 'soft texture', 'dark patches'],
+    issue: 'Frost Damage',
+    suggestion: 'Trim damage. Keep plant warm.'
+  },
+  {
+    keywords: ['yellowing leaves', 'dark roots', 'mushy base'],
+    issue: 'Wet Feet',
+    suggestion: 'Let soil dry fully. Ensure pot has drainage.'
+  }
+];
+
+
+  document.getElementById('symptomForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    const input = document.getElementById('symptoms').value.toLowerCase();
+    const resultBox = document.getElementById('result');
+    let found = false;
+
+    for (const rec of recommendations) {
+      for (const keyword of rec.keywords) {
+        if (input.includes(keyword)) {
+          resultBox.innerHTML = `<strong>Issue Detected:</strong> ${rec.issue}<br><strong>Suggestion:</strong> ${rec.suggestion}`;
+          resultBox.style.display = 'block';
+          found = true;
+          break;
+        }
+      }
+      if (found) break;
+    }
+
+    if (!found) {
+      resultBox.innerHTML = `<strong>No known issue detected.</strong><br>Please ensure the symptoms are clearly described or consult a local expert.`;
+      resultBox.style.display = 'block';
+    }
+  });
+</script>
+{% endblock %}

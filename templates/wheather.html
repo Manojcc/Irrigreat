@@ -1,0 +1,216 @@
+{% extends "layout.html" %}
+
+{% block nav %}
+<li><a href="index.html">Home</a></li>
+<li><a href="CropRecommendation.html">Crop</a></li>
+<li><a href="FertilizerRecommendation.html">Fertilizer</a></li>
+<li><a href="PesticideRecommendation.html">Pesticide Issue Detector</a></li>
+<li><a href="wheather" class="active">Weather</a></li>
+<li><a href="{{ url_for('logout') }}">Logout</a></li>
+{% endblock %}
+
+{% block body %}
+<style>
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    padding: 20px;
+    background-color: #e0f7fa;
+    color: black;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: none;
+    z-index: -1;
+  }
+
+  .weather-box {
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 20px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 700px;
+    margin: 40px auto 60px auto;
+  }
+
+  .weather-info, .forecast {
+    display: none;
+    margin-top: 20px;
+  }
+
+  .weather-icon img {
+    width: 70px;
+    height: 70px;
+  }
+
+  .forecast-day {
+    border-top: 1px solid #ddd;
+    padding-top: 10px;
+    margin-top: 10px;
+  }
+
+  .map-frame {
+    margin-top: 20px;
+    height: 250px;
+    width: 100%;
+    border: none;
+    border-radius: 12px;
+  }
+
+  .footer {
+    margin-top: 30px;
+    font-size: 0.9rem;
+    color: #666;
+    text-align: center;
+  }
+
+  .error-msg {
+    color: red;
+    margin-top: 10px;
+    font-weight: bold;
+  }
+</style>
+
+<div class="weather-box text-center">
+  <h1>🌦️ Weather</h1>
+  <form id="weatherForm" class="mb-3">
+    <input type="text" class="form-control mb-2" id="cityInput" placeholder="Enter city name" required />
+    <button type="submit" class="btn btn-primary w-100">Get Weather</button>
+  </form>
+
+  <div class="form-check form-switch text-start mb-2">
+    <input class="form-check-input" type="checkbox" role="switch" id="unitToggle">
+    <label class="form-check-label" for="unitToggle">Show °F instead of °C</label>
+  </div>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <div class="weather-info" id="weatherInfo">
+    <div class="weather-icon" id="weatherIcon">☁️</div>
+    <h2 id="cityName">City</h2>
+    <p id="temperature">Temperature: --°C</p>
+    <p id="condition">Condition: --</p>
+    <p id="windspeed">Wind Speed: -- km/h</p>
+  </div>
+
+  <!-- MAP Preview Section -->
+  <iframe id="map" class="map-frame" loading="lazy"></iframe>
+
+  <div class="forecast text-start mt-4" id="forecast">
+    <h5>3-Day Forecast</h5>
+    <div id="forecastDays"></div>
+  </div>
+
+  <div class="footer">
+  
+  </div>
+</div>
+
+<script>
+  const form = document.getElementById("weatherForm");
+  const cityInput = document.getElementById("cityInput");
+  const unitToggle = document.getElementById("unitToggle");
+
+  form.addEventListener("submit", function(e) {
+    e.preventDefault();
+    const city = cityInput.value.trim();
+    const errorMsg = document.getElementById("errorMsg");
+    const weatherInfo = document.getElementById("weatherInfo");
+    const forecastBox = document.getElementById("forecast");
+    const forecastDays = document.getElementById("forecastDays");
+
+    errorMsg.textContent = "";
+    weatherInfo.style.display = "none";
+    forecastBox.style.display = "none";
+    forecastDays.innerHTML = "";
+
+    if (!city) return;
+
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city)}`)
+      .then(res => res.json())
+      .then(locationData => {
+        if (!locationData.length) throw new Error("City not found.");
+
+        const { lat, lon, display_name } = locationData[0];
+        document.getElementById("map").src =
+          `https://maps.google.com/maps?q=${encodeURIComponent(city)}&t=&z=12&ie=UTF8&iwloc=&output=embed`;
+
+        return fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,weathercode&timezone=auto`);
+      })
+      .then(res => res.json())
+      .then(data => {
+        const { current_weather, daily } = data;
+        const tempC = current_weather.temperature;
+        const temp = unitToggle.checked ? toF(tempC) : tempC;
+        const unit = unitToggle.checked ? "°F" : "°C";
+
+        document.getElementById("cityName").innerText = cityInput.value;
+        document.getElementById("temperature").innerText = `Temperature: ${temp.toFixed(1)}${unit}`;
+        document.getElementById("condition").innerText = `Condition: ${getWeatherCondition(current_weather.weathercode)}`;
+        document.getElementById("windspeed").innerText = `Wind Speed: ${current_weather.windspeed} km/h`;
+        document.getElementById("weatherIcon").innerHTML = getWeatherIcon(current_weather.weathercode);
+
+        document.getElementById("weatherInfo").style.display = "block";
+
+        for (let i = 1; i <= 3; i++) {
+          const date = daily.time[i];
+          const tempDayC = daily.temperature_2m_max[i];
+          const tempDay = unitToggle.checked ? toF(tempDayC) : tempDayC;
+          const code = daily.weathercode[i];
+
+          forecastDays.innerHTML += `
+            <div class="forecast-day">
+              <strong>${date}</strong><br>
+              <span>${getWeatherIcon(code)} ${getWeatherCondition(code)}</span><br>
+              Temp: ${tempDay.toFixed(1)}${unit}
+            </div>
+          `;
+        }
+
+        forecastBox.style.display = "block";
+      })
+      .catch(err => {
+        errorMsg.textContent = err.message;
+      });
+  });
+
+  unitToggle.addEventListener("change", () => {
+    if (cityInput.value.trim()) {
+      form.dispatchEvent(new Event("submit"));
+    }
+  });
+
+  function toF(celsius) {
+    return (celsius * 9/5) + 32;
+  }
+
+  function getWeatherIcon(code) {
+    const icons = {
+      0: "☀️", 1: "🌤️", 2: "🌥️", 3: "☁️",
+      45: "🌫️", 48: "🌫️",
+      51: "🌦️", 53: "🌦️", 55: "🌧️",
+      61: "🌧️", 63: "🌧️", 65: "🌧️",
+      71: "❄️", 73: "❄️", 75: "❄️",
+      80: "🌧️", 81: "🌧️", 82: "🌧️",
+      95: "⛈️", 96: "⛈️", 99: "⛈️"
+    };
+    return icons[code] || "🌡️";
+  }
+
+  function getWeatherCondition(code) {
+    const conditions = {
+      0: "Clear Sky", 1: "Mainly Clear", 2: "Partly Cloudy", 3: "Overcast",
+      45: "Fog", 48: "Rime Fog",
+      51: "Light Drizzle", 53: "Moderate Drizzle", 55: "Dense Drizzle",
+      61: "Slight Rain", 63: "Moderate Rain", 65: "Heavy Rain",
+      71: "Slight Snow", 73: "Moderate Snow", 75: "Heavy Snow",
+      80: "Rain Showers", 81: "Moderate Showers", 82: "Heavy Showers",
+      95: "Thunderstorm", 96: "Storm + Hail", 99: "Severe Storm"
+    };
+    return conditions[code] || "Unknown";
+  }
+</script>
+{% endblock %}
