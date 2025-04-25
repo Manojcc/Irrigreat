@@ -11,6 +11,7 @@ gast==0.4.0
 google-pasta==0.2.0
 grpcio==1.56.2
 gunicorn==20.1.0
+pymysql
 h5py==3.8.0
 importlib-metadata==6.6.0
 itsdangerous==2.1.2
